@@ -1,9 +1,8 @@
-# Slot car lap timer
-
+# WZHOOH
 
 ## Installation
 
-1. Download latest firmware build from [Releases page](https://github.com/dotcypress/slot-car-lap-timer/releases)
+1. Download latest firmware build from [Releases page](https://github.com/dotcypress/wzhooh/releases)
 2. Hold the BOOTSEL button while connecting your board to the computer
 3. Copy firmware file downloaded earlier to the RPi-RP2 disk
 4. Enjoy
@@ -15,7 +14,7 @@
 3. Install LLVM tools: `rustup component add llvm-tools-preview`
 4. Install cargo-binutils: `cargo install cargo-binutils` (Note: on some Linux distros (e.g. Ubuntu) you may need to install the packages build-essential, gcc-arm-none-eabi, libssl-dev and pkg-config prior to installing cargo-binutils)
 5. Install elf2uf2: `cargo install elf2uf2-rs`
-6. Clone this repo: `git clone git@github.com:dotcypress/slot-car-lap-timer.git && cd slot-car-lap-timer`
+6. Clone this repo: `git clone git@github.com:dotcypress/wzhooh.git && cd wzhooh`
 7. Hold the BOOTSEL button while connecting your board to the computer
 8. Flash microcontroller: `cargo run --release`
 
