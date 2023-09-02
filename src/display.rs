@@ -1,10 +1,6 @@
 use crate::*;
 use embedded_hal::digital::v2::OutputPin;
 
-const DIGITS: [u8; 10] = [
-    0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110, 0b1101101, 0b1111101, 0b0000111,
-    0b1111111, 0b1101111,
-];
 type Segments = (
     Pin<bank0::Gpio0, Output<PushPull>>,
     Pin<bank0::Gpio1, Output<PushPull>>,
@@ -83,22 +79,23 @@ impl Display {
     }
 
     pub fn animate(&mut self) {
-        let mut laps = self.laps[0];
-        let digit = self.frame & 6;
-        if digit == 1 {
-            laps /= 10;
-        }
-        self.set_active_digit(Some(digit));
+        const DIGITS: [u8; 10] = [
+            0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110, 0b1101101, 0b1111101, 0b0000111,
+            0b1111111, 0b1101111,
+        ];
+
+        let laps = self.laps[0];
+        self.set_active_digit(Some(42));
         self.update_segments(DIGITS[laps % 10]);
         self.frame = self.frame.wrapping_add(1);
     }
 
     fn set_active_digit(&mut self, idx: Option<usize>) {
-        self.commons.0.set_low().ok();
-        self.commons.1.set_low().ok();
+        self.commons.0.set_high().ok();
+        self.commons.1.set_high().ok();
         match idx {
-            Some(0) => self.commons.0.set_high().ok(),
-            Some(1) => self.commons.1.set_high().ok(),
+            Some(0) => self.commons.0.set_low().ok(),
+            Some(1) => self.commons.1.set_low().ok(),
             _ => None,
         };
     }

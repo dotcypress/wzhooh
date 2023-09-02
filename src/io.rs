@@ -50,16 +50,16 @@ impl Buttons {
 }
 
 pub struct Sensors {
-    track_a: Pin<bank0::Gpio20, Input<PullUp>>,
-    track_b: Pin<bank0::Gpio21, Input<PullUp>>,
-    track_c: Pin<bank0::Gpio22, Input<PullUp>>,
+    track_a: Pin<bank0::Gpio20, Input<Floating>>,
+    track_b: Pin<bank0::Gpio21, Input<Floating>>,
+    track_c: Pin<bank0::Gpio22, Input<Floating>>,
 }
 
 impl Sensors {
     pub fn new(
-        track_a: Pin<bank0::Gpio20, Input<PullUp>>,
-        track_b: Pin<bank0::Gpio21, Input<PullUp>>,
-        track_c: Pin<bank0::Gpio22, Input<PullUp>>,
+        track_a: Pin<bank0::Gpio20, Input<Floating>>,
+        track_b: Pin<bank0::Gpio21, Input<Floating>>,
+        track_c: Pin<bank0::Gpio22, Input<Floating>>,
     ) -> Self {
         track_a.set_interrupt_enabled(Interrupt::EdgeLow, true);
         track_b.set_interrupt_enabled(Interrupt::EdgeLow, true);

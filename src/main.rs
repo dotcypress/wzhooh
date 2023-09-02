@@ -73,9 +73,9 @@ mod app {
         let counter = LapCounter::default();
 
         let sensors = Sensors::new(
-            pins.gpio20.into_pull_up_input(),
-            pins.gpio21.into_pull_up_input(),
-            pins.gpio22.into_pull_up_input(),
+            pins.gpio20.into_floating_input(),
+            pins.gpio21.into_floating_input(),
+            pins.gpio22.into_floating_input(),
         );
 
         let buttons = Buttons::new(
@@ -103,7 +103,6 @@ mod app {
 
         let pwm_slices = hal::pwm::Slices::new(ctx.device.PWM, &mut resets);
         let mut ui_timer = pwm_slices.pwm0;
-        ui_timer.set_div_int(1);
         ui_timer.enable_interrupt();
         ui_timer.enable();
 
