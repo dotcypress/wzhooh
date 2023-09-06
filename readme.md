@@ -1,5 +1,16 @@
 # WZHOOH
 
+Slot Car Lap Timer
+
+<img width="800" src="pcb/fab/wzhooh.png">
+
+## Resources
+
+- [Schematics](pcb/fab/wzhooh.pdf)
+- [Gerber files](pcb/fab/Wzhooh_rev_0x01.zip)
+- [BOM](pcb/fab/wzhooh-bom.csv)
+- [Interactive BOM](https://htmlpreview.github.io/?https://github.com/dotcypress/wzhooh/blob/main/pcb/fab/ibom.html)
+
 ## Installation
 
 1. Download latest firmware build from [Releases page](https://github.com/dotcypress/wzhooh/releases)

@@ -1,20 +1,39 @@
 use crate::*;
-use embedded_hal::digital::v2::OutputPin;
 
-type Segments = (
-    Pin<bank0::Gpio0, Output<PushPull>>,
-    Pin<bank0::Gpio1, Output<PushPull>>,
-    Pin<bank0::Gpio2, Output<PushPull>>,
-    Pin<bank0::Gpio3, Output<PushPull>>,
-    Pin<bank0::Gpio4, Output<PushPull>>,
-    Pin<bank0::Gpio5, Output<PushPull>>,
-    Pin<bank0::Gpio6, Output<PushPull>>,
-    Pin<bank0::Gpio7, Output<PushPull>>,
+pub type DisplaySegmentA = Pin<bank0::Gpio8, Output<PushPull>>;
+pub type DisplaySegmentB = Pin<bank0::Gpio9, Output<PushPull>>;
+pub type DisplaySegmentC = Pin<bank0::Gpio10, Output<PushPull>>;
+pub type DisplaySegmentD = Pin<bank0::Gpio11, Output<PushPull>>;
+pub type DisplaySegmentE = Pin<bank0::Gpio12, Output<PushPull>>;
+pub type DisplaySegmentF = Pin<bank0::Gpio13, Output<PushPull>>;
+pub type DisplaySegmentG = Pin<bank0::Gpio14, Output<PushPull>>;
+pub type DisplaySegmentDP = Pin<bank0::Gpio15, Output<PushPull>>;
+
+pub type DisplayCommon1 = Pin<bank0::Gpio21, Output<PushPull>>;
+pub type DisplayCommon2 = Pin<bank0::Gpio20, Output<PushPull>>;
+pub type DisplayCommon3 = Pin<bank0::Gpio19, Output<PushPull>>;
+pub type DisplayCommon4 = Pin<bank0::Gpio18, Output<PushPull>>;
+pub type DisplayCommon5 = Pin<bank0::Gpio17, Output<PushPull>>;
+pub type DisplayCommon6 = Pin<bank0::Gpio16, Output<PushPull>>;
+
+pub type Segments = (
+    DisplaySegmentA,
+    DisplaySegmentB,
+    DisplaySegmentC,
+    DisplaySegmentD,
+    DisplaySegmentE,
+    DisplaySegmentF,
+    DisplaySegmentG,
+    DisplaySegmentDP,
 );
 
-type Commons = (
-    Pin<bank0::Gpio8, Output<PushPull>>,
-    Pin<bank0::Gpio9, Output<PushPull>>,
+pub type Commons = (
+    DisplayCommon1,
+    DisplayCommon2,
+    DisplayCommon3,
+    DisplayCommon4,
+    DisplayCommon5,
+    DisplayCommon6,
 );
 
 pub struct Display {
@@ -27,14 +46,27 @@ pub struct Display {
 impl Display {
     pub fn new(commons: Commons, segments: Segments) -> Self {
         let mut commons = commons;
+        let mut segments = segments;
+
         commons
             .0
             .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
         commons
             .1
             .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+        commons
+            .2
+            .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+        commons
+            .3
+            .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+        commons
+            .4
+            .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+        commons
+            .5
+            .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
 
-        let mut segments = segments;
         segments
             .0
             .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
@@ -69,11 +101,12 @@ impl Display {
     }
 
     pub fn reset(&mut self) {
+        self.update_segments(0);
         self.laps = [0; 3];
     }
 
     pub fn set_track_laps(&mut self, track: Track, laps: usize) {
-        if let Some(val) = self.laps.get_mut(track) {
+        if let Some(val) = self.laps.get_mut(track.index()) {
             *val = laps
         }
     }
@@ -96,13 +129,17 @@ impl Display {
         match idx {
             Some(0) => self.commons.0.set_low().ok(),
             Some(1) => self.commons.1.set_low().ok(),
+            Some(2) => self.commons.2.set_low().ok(),
+            Some(3) => self.commons.3.set_low().ok(),
+            Some(4) => self.commons.4.set_low().ok(),
+            Some(5) => self.commons.5.set_low().ok(),
             _ => None,
         };
     }
 
-    fn update_segments(&mut self, segments: u8) {
+    fn update_segments(&mut self, data: u8) {
         let test_bit = |bit: usize| {
-            if (segments >> bit) & 1 == 1 {
+            if (data >> bit) & 1 == 1 {
                 PinState::Low
             } else {
                 PinState::High

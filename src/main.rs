@@ -13,6 +13,7 @@ mod io;
 
 use counter::*;
 use display::*;
+use embedded_hal::digital::v2::OutputPin;
 use hal::gpio::*;
 use hal::pac;
 use hal::pwm;
@@ -73,31 +74,35 @@ mod app {
         let counter = LapCounter::default();
 
         let sensors = Sensors::new(
-            pins.gpio20.into_floating_input(),
-            pins.gpio21.into_floating_input(),
-            pins.gpio22.into_floating_input(),
+            pins.gpio28.into_floating_input(),
+            pins.gpio27.into_floating_input(),
+            pins.gpio26.into_floating_input(),
         );
 
         let buttons = Buttons::new(
-            pins.gpio11.into_pull_up_input(),
-            pins.gpio12.into_pull_up_input(),
-            pins.gpio13.into_pull_up_input(),
+            pins.gpio7.into_pull_up_input(),
+            pins.gpio6.into_pull_up_input(),
+            pins.gpio5.into_pull_up_input(),
         );
 
         let display = Display::new(
             (
-                pins.gpio8.into_push_pull_output(),
-                pins.gpio9.into_push_pull_output(),
+                pins.gpio21.into_push_pull_output(),
+                pins.gpio20.into_push_pull_output(),
+                pins.gpio19.into_push_pull_output(),
+                pins.gpio18.into_push_pull_output(),
+                pins.gpio17.into_push_pull_output(),
+                pins.gpio16.into_push_pull_output(),
             ),
             (
-                pins.gpio0.into_push_pull_output(),
-                pins.gpio1.into_push_pull_output(),
-                pins.gpio2.into_push_pull_output(),
-                pins.gpio3.into_push_pull_output(),
-                pins.gpio4.into_push_pull_output(),
-                pins.gpio5.into_push_pull_output(),
-                pins.gpio6.into_push_pull_output(),
-                pins.gpio7.into_push_pull_output(),
+                pins.gpio8.into_push_pull_output(),
+                pins.gpio9.into_push_pull_output(),
+                pins.gpio10.into_push_pull_output(),
+                pins.gpio11.into_push_pull_output(),
+                pins.gpio12.into_push_pull_output(),
+                pins.gpio13.into_push_pull_output(),
+                pins.gpio14.into_push_pull_output(),
+                pins.gpio15.into_push_pull_output(),
             ),
         );
 
@@ -129,12 +134,14 @@ mod app {
 
     #[task(binds = IO_IRQ_BANK0, priority = 2, local = [buttons, sensors])]
     fn io_irq(ctx: io_irq::Context) {
-        for idx in 0..3 {
-            if ctx.local.sensors.is_car_detected(idx) {
-                io_event::spawn(IoEvent::CarDetected(idx, monotonics::now())).ok();
+        for track in [Track::A, Track::B, Track::C] {
+            if ctx.local.sensors.is_car_detected(track) {
+                io_event::spawn(IoEvent::CarDetected(track, monotonics::now())).ok();
             }
-            if ctx.local.buttons.is_pressed(idx) {
-                io_event::spawn(IoEvent::ButtonPressed(idx)).ok();
+        }
+        for button in [Button::A, Button::B, Button::C] {
+            if ctx.local.buttons.is_pressed(button) {
+                io_event::spawn(IoEvent::ButtonPressed(button)).ok();
             }
         }
     }
@@ -154,13 +161,6 @@ mod app {
             IoEvent::CarDetected(track, ts) => {
                 let laps = counter.lock(|counter| counter.record_lap(track, ts));
                 display.lock(|display| display.set_track_laps(track, laps));
-
-                defmt::info!(
-                    "Car detected on track #{} @ {}. Total laps: {}",
-                    track + 1,
-                    ts.ticks(),
-                    laps,
-                );
             }
         }
     }

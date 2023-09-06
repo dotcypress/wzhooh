@@ -25,7 +25,7 @@ impl LapCounter {
     }
 
     pub fn record_lap(&mut self, track: Track, ts: Instant) -> usize {
-        match self.history.get_mut(track) {
+        match self.history.get_mut(track.index()) {
             Some(laps) => {
                 laps.push(ts).ok();
                 laps.len()
