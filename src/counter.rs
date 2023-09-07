@@ -3,21 +3,12 @@ use heapless::Vec;
 
 pub type LapsHistory = Vec<Instant, 128>;
 
+#[derive(Default)]
 pub struct LapCounter {
     history: [LapsHistory; 3],
 }
 
 impl LapCounter {
-    pub fn new() -> Self {
-        Self {
-            history: [
-                LapsHistory::default(),
-                LapsHistory::default(),
-                LapsHistory::default(),
-            ],
-        }
-    }
-
     pub fn reset(&mut self) {
         for laps in self.history.iter_mut() {
             laps.clear();
@@ -32,11 +23,5 @@ impl LapCounter {
             }
             _ => 0,
         }
-    }
-}
-
-impl Default for LapCounter {
-    fn default() -> Self {
-        Self::new()
     }
 }

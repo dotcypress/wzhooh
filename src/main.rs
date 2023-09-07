@@ -49,8 +49,6 @@ mod app {
 
     #[init]
     fn init(ctx: init::Context) -> (Shared, Local, init::Monotonics) {
-        defmt::info!("Init started");
-
         let mut resets = ctx.device.RESETS;
         let mut watchdog = hal::Watchdog::new(ctx.device.WATCHDOG);
         let _clocks = hal::clocks::init_clocks_and_plls(
@@ -119,8 +117,6 @@ mod app {
             pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
         };
 
-        defmt::info!("Starting...");
-
         (
             Shared { counter, display },
             Local {
@@ -155,8 +151,8 @@ mod app {
 
         match ev {
             IoEvent::ButtonPressed(_) => {
-                display.lock(|display| display.reset());
                 counter.lock(|counter| counter.reset());
+                display.lock(|display| display.reset());
             }
             IoEvent::CarDetected(track, ts) => {
                 let laps = counter.lock(|counter| counter.record_lap(track, ts));

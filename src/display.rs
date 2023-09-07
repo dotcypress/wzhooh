@@ -1,5 +1,10 @@
 use crate::*;
 
+const DIGITS: [u8; 10] = [
+    0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110, 0b1101101, 0b1111101, 0b0000111,
+    0b1111111, 0b1101111,
+];
+
 pub type DisplaySegmentA = Pin<bank0::Gpio8, Output<PushPull>>;
 pub type DisplaySegmentB = Pin<bank0::Gpio9, Output<PushPull>>;
 pub type DisplaySegmentC = Pin<bank0::Gpio10, Output<PushPull>>;
@@ -112,20 +117,27 @@ impl Display {
     }
 
     pub fn animate(&mut self) {
-        const DIGITS: [u8; 10] = [
-            0b0111111, 0b0000110, 0b1011011, 0b1001111, 0b1100110, 0b1101101, 0b1111101, 0b0000111,
-            0b1111111, 0b1101111,
-        ];
+        let track_idx = (self.frame / 2) % 3;
+        let digit_idx = self.frame % 6;
+        let laps = self.laps[track_idx];
 
-        let laps = self.laps[0];
-        self.set_active_digit(Some(42));
-        self.update_segments(DIGITS[laps % 10]);
+        self.set_active_digit(None);
+        if digit_idx % 2 == 0 {
+            self.update_segments(DIGITS[laps % 10]);
+        } else {
+            self.update_segments(DIGITS[(laps / 10) % 10]);
+        }
+        self.set_active_digit(Some(digit_idx));
         self.frame = self.frame.wrapping_add(1);
     }
 
     fn set_active_digit(&mut self, idx: Option<usize>) {
         self.commons.0.set_high().ok();
         self.commons.1.set_high().ok();
+        self.commons.2.set_high().ok();
+        self.commons.3.set_high().ok();
+        self.commons.4.set_high().ok();
+        self.commons.5.set_high().ok();
         match idx {
             Some(0) => self.commons.0.set_low().ok(),
             Some(1) => self.commons.1.set_low().ok(),
@@ -140,9 +152,9 @@ impl Display {
     fn update_segments(&mut self, data: u8) {
         let test_bit = |bit: usize| {
             if (data >> bit) & 1 == 1 {
-                PinState::Low
-            } else {
                 PinState::High
+            } else {
+                PinState::Low
             }
         };
         self.segments.0.set_state(test_bit(0)).ok();
