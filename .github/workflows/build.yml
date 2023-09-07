@@ -43,15 +43,10 @@ jobs:
           override: true
       - uses: actions-rs/cargo@v1
         with:
-          command: install
-          args: elf2uf2-rs
-      - uses: actions-rs/cargo@v1
-        with:
           command: build
           args: --release --target=thumbv6m-none-eabi
-      - run: elf2uf2-rs target/thumbv6m-none-eabi/release/wzhooh wzhooh.uf2
       - uses: actions/upload-artifact@v3
         with:
           name: Firmware
-          path: wzhooh.uf2
+          path: target/thumbv6m-none-eabi/release/wzhooh
 
