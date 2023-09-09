@@ -1,6 +1,6 @@
 [package]
 name = "wzhooh"
-version = "0.0.0"
+version = "0.0.1"
 authors = ["Vitaly Domnikov <oss@vitaly.codes>"]
 repository = "https://github.com/dotcypress/wzhooh"
 description = "Slot car lap timer"
