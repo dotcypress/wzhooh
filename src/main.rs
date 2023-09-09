@@ -85,12 +85,12 @@ mod app {
 
         let display = Display::new(
             (
-                pins.gpio21.into_push_pull_output(),
                 pins.gpio20.into_push_pull_output(),
-                pins.gpio19.into_push_pull_output(),
+                pins.gpio21.into_push_pull_output(),
                 pins.gpio18.into_push_pull_output(),
-                pins.gpio17.into_push_pull_output(),
+                pins.gpio19.into_push_pull_output(),
                 pins.gpio16.into_push_pull_output(),
+                pins.gpio17.into_push_pull_output(),
             ),
             (
                 pins.gpio8.into_push_pull_output(),

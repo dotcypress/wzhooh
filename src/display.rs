@@ -14,12 +14,12 @@ pub type DisplaySegmentF = Pin<bank0::Gpio13, Output<PushPull>>;
 pub type DisplaySegmentG = Pin<bank0::Gpio14, Output<PushPull>>;
 pub type DisplaySegmentDP = Pin<bank0::Gpio15, Output<PushPull>>;
 
-pub type DisplayCommon1 = Pin<bank0::Gpio21, Output<PushPull>>;
-pub type DisplayCommon2 = Pin<bank0::Gpio20, Output<PushPull>>;
-pub type DisplayCommon3 = Pin<bank0::Gpio19, Output<PushPull>>;
-pub type DisplayCommon4 = Pin<bank0::Gpio18, Output<PushPull>>;
-pub type DisplayCommon5 = Pin<bank0::Gpio17, Output<PushPull>>;
-pub type DisplayCommon6 = Pin<bank0::Gpio16, Output<PushPull>>;
+pub type DisplayCommon1 = Pin<bank0::Gpio20, Output<PushPull>>;
+pub type DisplayCommon2 = Pin<bank0::Gpio21, Output<PushPull>>;
+pub type DisplayCommon3 = Pin<bank0::Gpio18, Output<PushPull>>;
+pub type DisplayCommon4 = Pin<bank0::Gpio19, Output<PushPull>>;
+pub type DisplayCommon5 = Pin<bank0::Gpio16, Output<PushPull>>;
+pub type DisplayCommon6 = Pin<bank0::Gpio17, Output<PushPull>>;
 
 pub type Segments = (
     DisplaySegmentA,

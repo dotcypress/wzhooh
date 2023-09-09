@@ -1,6 +1,6 @@
 Id,Designator,Footprint,Quantity,Designation,Supplier and ref,,
 1,"R11,R22,R20,R21,R14,R12,R9,R17,R19,R18,R23,R15",R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical,12,330Ω,https://m-teh.com.ua/ru/rezistor-330r-0.25w-cfr-5,,
-2,"R4,R6,R8,R7,R5,R3,R2,R1",R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical,8,50Ω,https://m-teh.com.ua/ru/rezistor-56r-0.25w-cfr-5,,
+2,"R4,R6,R8,R7,R5,R3,R2,R1",R_Axial_DIN0207_L6.3mm_D2.5mm_P2.54mm_Vertical,8,33Ω,https://m-teh.com.ua/ru/rezistor-33r-0.25w-cfr-5/,,
 6,"C3,C1,C2",C_Disc_D4.7mm_W2.5mm_P5.00mm,3,1nF,https://m-teh.com.ua/ru/kondensator-mcc-0.1uf-50v-x7r-10/,,
 7,C4,CP_Radial_D7.5mm_P2.50mm,1,4.7uF,https://m-teh.com.ua/ru/kondensator-ze-330uf-10v-69-[polimerniy]/,,
 8,"J1,J2,J3",PinHeader_1x03_P2.54mm_Horizontal,3,Sensors,https://m-teh.com.ua/ru/pls1x40-zl201-40g/,,
