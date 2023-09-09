@@ -2,7 +2,7 @@
 
 Slot Car Lap Timer
 
-<img width="800" src="pcb/fab/wzhooh.png"/>
+<img width="750" src="pcb/fab/wzhooh.png"/>
 
 ## Resources
 
