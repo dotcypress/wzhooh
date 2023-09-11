@@ -51,7 +51,7 @@ mod app {
     fn init(ctx: init::Context) -> (Shared, Local, init::Monotonics) {
         let mut resets = ctx.device.RESETS;
         let mut watchdog = hal::Watchdog::new(ctx.device.WATCHDOG);
-        let _clocks = hal::clocks::init_clocks_and_plls(
+        let clocks = hal::clocks::init_clocks_and_plls(
             XTAL_FREQ_HZ,
             ctx.device.XOSC,
             ctx.device.CLOCKS,
@@ -59,7 +59,9 @@ mod app {
             ctx.device.PLL_USB,
             &mut resets,
             &mut watchdog,
-        );
+        )
+        .ok()
+        .unwrap();
 
         let sio = hal::Sio::new(ctx.device.SIO);
         let pins = Pins::new(
@@ -71,37 +73,37 @@ mod app {
 
         let counter = LapCounter::default();
 
-        let sensors = Sensors::new(
-            pins.gpio28.into_floating_input(),
-            pins.gpio27.into_floating_input(),
-            pins.gpio26.into_floating_input(),
-        );
+        let sensors = Sensors::new([
+            pins.gpio28.into_floating_input().into_dyn_pin(),
+            pins.gpio27.into_floating_input().into_dyn_pin(),
+            pins.gpio26.into_floating_input().into_dyn_pin(),
+        ]);
 
-        let buttons = Buttons::new(
-            pins.gpio7.into_pull_up_input(),
-            pins.gpio6.into_pull_up_input(),
-            pins.gpio5.into_pull_up_input(),
-        );
+        let buttons = Buttons::new([
+            pins.gpio7.into_pull_up_input().into_dyn_pin(),
+            pins.gpio6.into_pull_up_input().into_dyn_pin(),
+            pins.gpio5.into_pull_up_input().into_dyn_pin(),
+        ]);
 
         let display = Display::new(
-            (
-                pins.gpio20.into_push_pull_output(),
-                pins.gpio21.into_push_pull_output(),
-                pins.gpio18.into_push_pull_output(),
-                pins.gpio19.into_push_pull_output(),
-                pins.gpio16.into_push_pull_output(),
-                pins.gpio17.into_push_pull_output(),
-            ),
-            (
-                pins.gpio8.into_push_pull_output(),
-                pins.gpio9.into_push_pull_output(),
-                pins.gpio10.into_push_pull_output(),
-                pins.gpio11.into_push_pull_output(),
-                pins.gpio12.into_push_pull_output(),
-                pins.gpio13.into_push_pull_output(),
-                pins.gpio14.into_push_pull_output(),
-                pins.gpio15.into_push_pull_output(),
-            ),
+            [
+                pins.gpio20.into_push_pull_output().into_dyn_pin(),
+                pins.gpio21.into_push_pull_output().into_dyn_pin(),
+                pins.gpio18.into_push_pull_output().into_dyn_pin(),
+                pins.gpio19.into_push_pull_output().into_dyn_pin(),
+                pins.gpio16.into_push_pull_output().into_dyn_pin(),
+                pins.gpio17.into_push_pull_output().into_dyn_pin(),
+            ],
+            [
+                pins.gpio8.into_push_pull_output().into_dyn_pin(),
+                pins.gpio9.into_push_pull_output().into_dyn_pin(),
+                pins.gpio10.into_push_pull_output().into_dyn_pin(),
+                pins.gpio11.into_push_pull_output().into_dyn_pin(),
+                pins.gpio12.into_push_pull_output().into_dyn_pin(),
+                pins.gpio13.into_push_pull_output().into_dyn_pin(),
+                pins.gpio14.into_push_pull_output().into_dyn_pin(),
+                pins.gpio15.into_push_pull_output().into_dyn_pin(),
+            ],
         );
 
         let pwm_slices = hal::pwm::Slices::new(ctx.device.PWM, &mut resets);
@@ -109,7 +111,7 @@ mod app {
         ui_timer.enable_interrupt();
         ui_timer.enable();
 
-        let mut timer = hal::Timer::new(ctx.device.TIMER, &mut resets);
+        let mut timer = hal::Timer::new(ctx.device.TIMER, &mut resets, &clocks);
         let alarm = timer.alarm_0().unwrap();
         let mono = Monotonic::new(timer, alarm);
 

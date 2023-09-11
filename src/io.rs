@@ -1,12 +1,7 @@
 use crate::*;
 
-pub type ButtonA = Pin<bank0::Gpio7, Input<PullUp>>;
-pub type ButtonB = Pin<bank0::Gpio6, Input<PullUp>>;
-pub type ButtonC = Pin<bank0::Gpio5, Input<PullUp>>;
-
-pub type SensorA = Pin<bank0::Gpio28, Input<Floating>>;
-pub type SensorB = Pin<bank0::Gpio27, Input<Floating>>;
-pub type SensorC = Pin<bank0::Gpio26, Input<Floating>>;
+pub type ButtonPin = Pin<DynPinId, FunctionSio<SioInput>, PullUp>;
+pub type SensorPin = Pin<DynPinId, FunctionSio<SioInput>, PullNone>;
 
 #[derive(Clone, Copy, Debug)]
 pub enum Track {
@@ -32,6 +27,16 @@ pub enum Button {
     C,
 }
 
+impl Button {
+    pub fn index(&self) -> usize {
+        match self {
+            Button::A => 0,
+            Button::B => 1,
+            Button::C => 2,
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum IoEvent {
     ButtonPressed(Button),
@@ -39,75 +44,47 @@ pub enum IoEvent {
 }
 
 pub struct Buttons {
-    btn_a: ButtonA,
-    btn_b: ButtonB,
-    btn_c: ButtonC,
+    buttons: [ButtonPin; 3],
 }
 
 impl Buttons {
-    pub fn new(btn_a: ButtonA, btn_b: ButtonB, btn_c: ButtonC) -> Self {
-        btn_a.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        btn_b.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        btn_c.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        Self {
-            btn_a,
-            btn_b,
-            btn_c,
+    pub fn new(buttons: [ButtonPin; 3]) -> Self {
+        let mut buttons = buttons;
+        for button in &mut buttons {
+            button.set_interrupt_enabled(Interrupt::EdgeLow, true);
         }
+        Self { buttons }
     }
 
     pub fn is_pressed(&mut self, btn: Button) -> bool {
-        match btn {
-            Button::A if self.btn_a.interrupt_status(Interrupt::EdgeLow) => {
-                self.btn_a.clear_interrupt(Interrupt::EdgeLow);
-                true
-            }
-            Button::B if self.btn_b.interrupt_status(Interrupt::EdgeLow) => {
-                self.btn_b.clear_interrupt(Interrupt::EdgeLow);
-                true
-            }
-            Button::C if self.btn_c.interrupt_status(Interrupt::EdgeLow) => {
-                self.btn_c.clear_interrupt(Interrupt::EdgeLow);
-                true
-            }
-            _ => false,
+        let btn = &mut self.buttons[btn.index()];
+        if btn.interrupt_status(Interrupt::EdgeLow) {
+            btn.clear_interrupt(Interrupt::EdgeLow);
+            return true;
         }
+        false
     }
 }
 
 pub struct Sensors {
-    track_a: SensorA,
-    track_b: SensorB,
-    track_c: SensorC,
+    tracks: [SensorPin; 3],
 }
 
 impl Sensors {
-    pub fn new(track_a: SensorA, track_b: SensorB, track_c: SensorC) -> Self {
-        track_a.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        track_b.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        track_c.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        Self {
-            track_a,
-            track_b,
-            track_c,
+    pub fn new(tracks: [SensorPin; 3]) -> Self {
+        let mut tracks = tracks;
+        for track in &mut tracks {
+            track.set_interrupt_enabled(Interrupt::EdgeLow, true);
         }
+        Self { tracks }
     }
 
     pub fn is_car_detected(&mut self, track: Track) -> bool {
-        match track {
-            Track::A if self.track_a.interrupt_status(Interrupt::EdgeLow) => {
-                self.track_a.clear_interrupt(Interrupt::EdgeLow);
-                true
-            }
-            Track::B if self.track_b.interrupt_status(Interrupt::EdgeLow) => {
-                self.track_b.clear_interrupt(Interrupt::EdgeLow);
-                true
-            }
-            Track::C if self.track_c.interrupt_status(Interrupt::EdgeLow) => {
-                self.track_c.clear_interrupt(Interrupt::EdgeLow);
-                true
-            }
-            _ => false,
+        let track = &mut self.tracks[track.index()];
+        if track.interrupt_status(Interrupt::EdgeLow) {
+            track.clear_interrupt(Interrupt::EdgeLow);
+            return true;
         }
+        false
     }
 }
