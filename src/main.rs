@@ -11,6 +11,7 @@ mod counter;
 mod display;
 mod io;
 
+use cortex_m::singleton;
 use counter::*;
 use display::*;
 use embedded_hal::digital::v2::OutputPin;
@@ -18,7 +19,10 @@ use hal::gpio::*;
 use hal::pac;
 use hal::pwm;
 use hal::timer::{monotonic::Monotonic, *};
+use hal::usb::UsbBus;
 use io::*;
+use usb_device::{class_prelude::*, prelude::*};
+use usbd_serial::SerialPort;
 
 pub const XTAL_FREQ_HZ: u32 = 12_000_000_u32;
 
@@ -45,6 +49,10 @@ mod app {
     struct Shared {
         display: Display,
         counter: LapCounter,
+        serial: (
+            SerialPort<'static, hal::usb::UsbBus>,
+            UsbDevice<'static, hal::usb::UsbBus>,
+        ),
     }
 
     #[init]
@@ -115,12 +123,33 @@ mod app {
         let alarm = timer.alarm_0().unwrap();
         let mono = Monotonic::new(timer, alarm);
 
+        let usb_regs = ctx.device.USBCTRL_REGS;
+        let usb_dpram = ctx.device.USBCTRL_DPRAM;
+        let usb_bus = UsbBus::new(usb_regs, usb_dpram, clocks.usb_clock, true, &mut resets);
+        let usb_bus: &'static UsbBusAllocator<UsbBus> =
+            singleton!(: UsbBusAllocator<UsbBus> = UsbBusAllocator::new(usb_bus)).unwrap();
+
+        let serial = (
+            SerialPort::new(usb_bus),
+            UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
+                .manufacturer("Ferris & Co")
+                .product("vitaly.codes/wzhooh")
+                .serial_number("_wzhooh_")
+                .device_class(2)
+                .build(),
+        );
+
         unsafe {
             pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
+            pac::NVIC::unmask(pac::Interrupt::USBCTRL_IRQ);
         };
 
         (
-            Shared { counter, display },
+            Shared {
+                counter,
+                display,
+                serial,
+            },
             Local {
                 buttons,
                 sensors,
@@ -144,11 +173,12 @@ mod app {
         }
     }
 
-    #[task(capacity = 16, shared = [counter, display])]
+    #[task(capacity = 16, shared = [counter, display, serial])]
     fn io_event(ctx: io_event::Context, ev: IoEvent) {
         let io_event::SharedResources {
             mut counter,
             mut display,
+            mut serial,
         } = ctx.shared;
 
         match ev {
@@ -159,6 +189,12 @@ mod app {
             IoEvent::CarDetected(track, ts) => {
                 let laps = counter.lock(|counter| counter.record_lap(track, ts));
                 display.lock(|display| display.set_track_laps(track, laps));
+                serial.lock(|(serial, _)| {
+                    use core::fmt::Write;
+                    let mut buf = heapless::String::<64>::default();
+                    write!(&mut buf, "Track #{}: {}\r\n", track as u8, laps).ok();
+                    serial.write(buf.as_bytes()).ok();
+                });
             }
         }
     }
@@ -167,5 +203,18 @@ mod app {
     fn update_ui(mut ctx: update_ui::Context) {
         ctx.shared.display.lock(|display| display.animate());
         ctx.local.ui_timer.clear_interrupt();
+    }
+
+    #[task(binds = USBCTRL_IRQ, shared = [serial])]
+    fn usb_irq(mut ctx: usb_irq::Context) {
+        ctx.shared.serial.lock(|(serial, usb)| {
+            if usb.poll(&mut [serial]) {
+                let mut scratch = [0; 64];
+                match serial.read(&mut scratch) {
+                    Ok(n) if n > 0 => {}
+                    _ => {}
+                }
+            }
+        });
     }
 }
