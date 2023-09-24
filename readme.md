@@ -6,6 +6,7 @@ Slot Car Lap Timer
 
 ## Resources
 
+- [Web Dashboard](https://wzhooh.vercel.app)
 - [Schematics](pcb/fab/wzhooh.pdf)
 - [Gerber files](pcb/fab/Wzhooh_rev_0x01.zip)
 - [BOM](pcb/fab/wzhooh-bom.csv)

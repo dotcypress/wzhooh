@@ -1,8 +1,9 @@
 <script>
   import 'bulma/css/bulma.min.css';
-  // @ts-ignore
-  import { serial as polyfill } from 'web-serial-polyfill';
   import { HardDriveIcon, WindIcon, Trash2Icon, GithubIcon } from 'svelte-feather-icons';
+
+  // @ts-ignore
+  let serial = navigator.serial;
 
   let port;
   let scratch = '';
@@ -10,19 +11,22 @@
 
   let version = '';
   let stats = [
-    { laps: 0, last: '0', best: '0' },
-    { laps: 0, last: '0', best: '0' },
-    { laps: 0, last: '0', best: '0' }
+    { laps: '0', last: '0', best: '0' },
+    { laps: '0', last: '0', best: '0' },
+    { laps: '0', last: '0', best: '0' }
   ];
 
   async function connect() {
     if (!port) {
-      // @ts-ignore
-      let serial = navigator.serial || polyfill;
-      port = await serial?.requestPort({ filters: [{ usbVendorId: 0x16c0 }] });
-      await port.open({ baudRate: 115200 });
-      await send('version');
-      poll();
+      port = await serial?.requestPort({ filters: [{ usbVendorId: 0x16c0, productId: 0x27dd }] });
+      try {
+        await port.open({ baudRate: 115200 });
+        await send('version');
+        poll();
+      } catch (error) {
+        console.error(error)
+        port = null;
+      }
     } else {
       version = '';
       await port.close();
@@ -40,7 +44,7 @@
       const res = await reader.read();
       scratch += decoder.decode(res.value);
     } catch (error) {
-      console.log(error);
+      console.error(error);
     } finally {
       reader?.releaseLock();
     }
@@ -83,7 +87,7 @@
           let value = parseInt(tagValue[1].trim()) || 0;
           switch (tagValue[0]) {
             case 'laps':
-              stats[track].laps = value;
+              stats[track].laps = value.toString();
               break;
             case 'last':
               stats[track].last = (value / 1000000).toFixed(4);
@@ -102,30 +106,24 @@
   <nav class="navbar is-dark">
     <div class="navbar-brand">
       <div class="navbar-item">
-        <span
-          class="tag is-dark is-size-5 is-family-code has-text-weight-bold"
-          class:is-warn={port}
-        >
+        <div class="tag is-dark is-size-5 is-family-code has-text-weight-bold" class:is-warn={port}>
           <span class="icon is-small">
             <WindIcon />
           </span>
-          &nbsp; wzhooh
-        </span>
+          &nbsp; Wzhooh 
+        </div>
+        {#if (version)}
+          <div class="is-size-7 is-family-code version">Firmware {version}</div>
+        {/if}
       </div>
     </div>
     <div class="navbar-item toolbar">
       <div class="buttons">
-        {#if version}
-          <a
-            class="button is-link is-small"
-            href="https://github.com/dotcypress/wzhooh/releases/tag/{version}"
-          >
-            <span class="icon">
-              <GithubIcon />
-            </span>
-            <span>&nbsp; Firmware {version}</span>
-          </a>
-        {/if}
+        <a class="button is-info is-small"  href="https://github.com/dotcypress/wzhooh">
+          <span class="icon">
+            <GithubIcon />
+          </span>
+        </a>
         {#if port}
           <button class="button is-small is-danger" title="Reset" on:click={reset}>
             <span class="icon">
@@ -134,46 +132,59 @@
             <span>&nbsp; Reset</span>
           </button>
         {/if}
-        <button
-          class="button is-small"
-          title="Connect"
-          class:is-success={!port}
-          class:is-warning={port}
-          on:click={connect}
-        >
-          <span class="icon">
-            <HardDriveIcon />
-          </span>
-          <span>
-            &nbsp; {port ? 'Disconnect' : 'Connect'}
-          </span>
-        </button>
+        {#if serial}
+          <button
+            class="button is-small"
+            title="Connect"
+            class:is-success={!port}
+            class:is-warning={port}
+            on:click={connect}
+          >
+            <span class="icon">
+              <HardDriveIcon />
+            </span>
+            <span>
+              &nbsp; {port ? 'Disconnect' : 'Connect'}
+            </span>
+          </button>
+        {/if}
       </div>
     </div>
   </nav>
-  <div class="columns">
-    {#each stats as stat, i}
-      <div class="column">
-        <nav class="panel is-warning">
-          <div class="panel-heading">
-            <h1 class="title is-5">Track #{i + 1}</h1>
-          </div>
-          <div class="panel-block">
-            <h1 class="title is-1 is-family-code has-text-weight-bold">{stat.laps}</h1>
-            <div class="tag is-link is-light title is-6">LAPS</div>
-          </div>
-          <div class="panel-block">
-            <h1 class="title is-2 is-family-code has-text-weight-bold">{stat.last}</h1>
-            <div class="tag is-success is-light title is-6">LAST LAP</div>
-          </div>
-          <div class="panel-block">
-            <h1 class="title is-2 is-family-code has-text-weight-bold">{stat.best}</h1>
-            <div class="tag is-warning is-light title is-6">BEST LAP</div>
-          </div>
-        </nav>
+  {#if (serial)}
+    <div class="columns">
+      {#each stats as stat, i}
+        <div class="column">
+          <nav class="panel is-warning">
+            <div class="panel-heading">
+              <h1 class="title is-5">Track #{i + 1}</h1>
+            </div>
+            <div class="panel-block">
+              <h1 class="title is-1 is-family-code has-text-weight-bold">{stat.laps}</h1>
+              <div class="tag is-link is-light title is-6">LAPS</div>
+            </div>
+            <div class="panel-block">
+              <h1 class="title is-2 is-family-code has-text-weight-bold">{stat.last}</h1>
+              <div class="tag is-success is-light title is-6">LAST LAP</div>
+            </div>
+            <div class="panel-block">
+              <h1 class="title is-2 is-family-code has-text-weight-bold">{stat.best}</h1>
+              <div class="tag is-warning is-light title is-6">BEST LAP</div>
+            </div>
+          </nav>
+        </div>
+      {/each}
+    </div>
+  {:else}
+    <section class="hero is-danger">
+      <div class="hero-body">
+        <p class="subtitle">
+          The <a href="https://caniuse.com/web-serial">Web Serial API</a> is not supported by your browser
+        </p>
       </div>
-    {/each}
-  </div>
+    </section>
+  {/if}
+
 </div>
 
 <style>
@@ -192,9 +203,18 @@
     right: 0;
     bottom: 0;
   }
+  .workspace .navbar {
+    display: flex;
+  }
   .workspace .navbar .toolbar {
+    display: flex;
     flex: 1;
     justify-content: end;
+  }
+  .workspace .navbar .navbar-brand .version {
+    position: absolute;
+    left: 18px;
+    bottom: 2px;
   }
   .workspace .columns {
     margin: 8px;
