@@ -1,22 +1,31 @@
 use crate::*;
 
-pub type ButtonPin = Pin<DynPinId, FunctionSio<SioInput>, PullUp>;
 pub type SensorPin = Pin<DynPinId, FunctionSio<SioInput>, PullNone>;
+pub type ButtonPin = Pin<DynPinId, FunctionSio<SioInput>, PullUp>;
+pub type Track = usize;
 
-#[derive(Clone, Copy, Debug)]
-pub enum Track {
-    A,
-    B,
-    C,
+pub const TRACKS: usize = 3;
+
+pub struct Sensors {
+    tracks: [SensorPin; TRACKS],
 }
 
-impl Track {
-    pub fn index(&self) -> usize {
-        match self {
-            Track::A => 0,
-            Track::B => 1,
-            Track::C => 2,
+impl Sensors {
+    pub fn new(tracks: [SensorPin; TRACKS]) -> Self {
+        let mut tracks = tracks;
+        for track in &mut tracks {
+            track.set_interrupt_enabled(Interrupt::EdgeLow, true);
         }
+        Self { tracks }
+    }
+
+    pub fn is_car_detected(&mut self, track: Track) -> bool {
+        let track = &mut self.tracks[track];
+        if track.interrupt_status(Interrupt::EdgeLow) {
+            track.clear_interrupt(Interrupt::EdgeLow);
+            return true;
+        }
+        false
     }
 }
 
@@ -60,29 +69,6 @@ impl Buttons {
         let btn = &mut self.buttons[btn.index()];
         if btn.interrupt_status(Interrupt::EdgeLow) {
             btn.clear_interrupt(Interrupt::EdgeLow);
-            return true;
-        }
-        false
-    }
-}
-
-pub struct Sensors {
-    tracks: [SensorPin; 3],
-}
-
-impl Sensors {
-    pub fn new(tracks: [SensorPin; 3]) -> Self {
-        let mut tracks = tracks;
-        for track in &mut tracks {
-            track.set_interrupt_enabled(Interrupt::EdgeLow, true);
-        }
-        Self { tracks }
-    }
-
-    pub fn is_car_detected(&mut self, track: Track) -> bool {
-        let track = &mut self.tracks[track.index()];
-        if track.interrupt_status(Interrupt::EdgeLow) {
-            track.clear_interrupt(Interrupt::EdgeLow);
             return true;
         }
         false

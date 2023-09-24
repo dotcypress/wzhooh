@@ -41,7 +41,7 @@ impl Display {
     }
 
     pub fn set_track_laps(&mut self, track: Track, laps: usize) {
-        if let Some(val) = self.laps.get_mut(track.index()) {
+        if let Some(val) = self.laps.get_mut(track) {
             *val = laps
         }
     }

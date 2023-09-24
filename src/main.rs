@@ -10,6 +10,7 @@ use defmt_rtt as _;
 mod counter;
 mod display;
 mod io;
+mod shell;
 
 use cortex_m::singleton;
 use counter::*;
@@ -21,8 +22,10 @@ use hal::pwm;
 use hal::timer::{monotonic::Monotonic, *};
 use hal::usb::UsbBus;
 use io::*;
+use shell::*;
 use usb_device::{class_prelude::*, prelude::*};
 use usbd_serial::SerialPort;
+use ushell::history::LRUHistory;
 
 pub const XTAL_FREQ_HZ: u32 = 12_000_000_u32;
 
@@ -42,6 +45,7 @@ mod app {
     struct Local {
         buttons: Buttons,
         sensors: Sensors,
+        shell: Shell,
         ui_timer: pwm::Slice<pwm::Pwm0, pwm::FreeRunning>,
     }
 
@@ -49,10 +53,6 @@ mod app {
     struct Shared {
         display: Display,
         counter: LapCounter,
-        serial: (
-            SerialPort<'static, hal::usb::UsbBus>,
-            UsbDevice<'static, hal::usb::UsbBus>,
-        ),
     }
 
     #[init]
@@ -69,7 +69,7 @@ mod app {
             &mut watchdog,
         )
         .ok()
-        .unwrap();
+        .expect("Clocks init failed");
 
         let sio = hal::Sio::new(ctx.device.SIO);
         let pins = Pins::new(
@@ -120,16 +120,17 @@ mod app {
         ui_timer.enable();
 
         let mut timer = hal::Timer::new(ctx.device.TIMER, &mut resets, &clocks);
-        let alarm = timer.alarm_0().unwrap();
+        let alarm = timer.alarm_0().expect("Alarm0 init failed");
         let mono = Monotonic::new(timer, alarm);
 
         let usb_regs = ctx.device.USBCTRL_REGS;
         let usb_dpram = ctx.device.USBCTRL_DPRAM;
         let usb_bus = UsbBus::new(usb_regs, usb_dpram, clocks.usb_clock, true, &mut resets);
         let usb_bus: &'static UsbBusAllocator<UsbBus> =
-            singleton!(: UsbBusAllocator<UsbBus> = UsbBusAllocator::new(usb_bus)).unwrap();
+            singleton!(: UsbBusAllocator<UsbBus> = UsbBusAllocator::new(usb_bus))
+                .expect("USB init failed");
 
-        let serial = (
+        let serial = Serial::new(
             SerialPort::new(usb_bus),
             UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
                 .manufacturer("Ferris & Co")
@@ -139,20 +140,19 @@ mod app {
                 .build(),
         );
 
+        let shell = Shell::new(serial, AUTOCOMPLETE, LRUHistory::default());
+
         unsafe {
             pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
             pac::NVIC::unmask(pac::Interrupt::USBCTRL_IRQ);
         };
 
         (
-            Shared {
-                counter,
-                display,
-                serial,
-            },
+            Shared { counter, display },
             Local {
                 buttons,
                 sensors,
+                shell,
                 ui_timer,
             },
             init::Monotonics(mono),
@@ -161,24 +161,25 @@ mod app {
 
     #[task(binds = IO_IRQ_BANK0, priority = 2, local = [buttons, sensors])]
     fn io_irq(ctx: io_irq::Context) {
-        for track in [Track::A, Track::B, Track::C] {
+        for track in 0..TRACKS {
             if ctx.local.sensors.is_car_detected(track) {
-                io_event::spawn(IoEvent::CarDetected(track, monotonics::now())).ok();
+                io_event::spawn(IoEvent::CarDetected(track, monotonics::now()))
+                    .expect("failed to spawn CarDetected event");
             }
         }
         for button in [Button::A, Button::B, Button::C] {
             if ctx.local.buttons.is_pressed(button) {
-                io_event::spawn(IoEvent::ButtonPressed(button)).ok();
+                io_event::spawn(IoEvent::ButtonPressed(button))
+                    .expect("failed to spawn ButtonPressed event");
             }
         }
     }
 
-    #[task(capacity = 16, shared = [counter, display, serial])]
+    #[task(capacity = 16, shared = [counter, display])]
     fn io_event(ctx: io_event::Context, ev: IoEvent) {
         let io_event::SharedResources {
             mut counter,
             mut display,
-            mut serial,
         } = ctx.shared;
 
         match ev {
@@ -187,14 +188,9 @@ mod app {
                 display.lock(|display| display.reset());
             }
             IoEvent::CarDetected(track, ts) => {
-                let laps = counter.lock(|counter| counter.record_lap(track, ts));
-                display.lock(|display| display.set_track_laps(track, laps));
-                serial.lock(|(serial, _)| {
-                    use core::fmt::Write;
-                    let mut buf = heapless::String::<64>::default();
-                    write!(&mut buf, "Track #{}: {}\r\n", track as u8, laps).ok();
-                    serial.write(buf.as_bytes()).ok();
-                });
+                if let Some(stats) = counter.lock(|counter| counter.record_lap(track, ts)) {
+                    display.lock(|display| display.set_track_laps(track, stats.laps()));
+                }
             }
         }
     }
@@ -205,16 +201,8 @@ mod app {
         ctx.local.ui_timer.clear_interrupt();
     }
 
-    #[task(binds = USBCTRL_IRQ, shared = [serial])]
+    #[task(binds = USBCTRL_IRQ, local = [shell], shared = [counter, display])]
     fn usb_irq(mut ctx: usb_irq::Context) {
-        ctx.shared.serial.lock(|(serial, usb)| {
-            if usb.poll(&mut [serial]) {
-                let mut scratch = [0; 64];
-                match serial.read(&mut scratch) {
-                    Ok(n) if n > 0 => {}
-                    _ => {}
-                }
-            }
-        });
+        ctx.local.shell.spin(&mut ctx.shared).ok();
     }
 }
