@@ -145,15 +145,14 @@ impl Env<'_> {
 
     fn print_track_stats(&mut self, shell: &mut Shell, track: Track) -> EnvResult {
         if let Some(stats) = self.counter.lock(|counter| counter.stats(track)) {
+            let empty = Duration::from_ticks(0);
             let laps = stats.laps();
-            write!(shell, "track #{track}; laps: {laps}; ")?;
-            if let Some(last) = stats.last() {
-                write!(shell, "last: {last}; ",)?;
-            }
-            if let Some(best) = stats.best() {
-                write!(shell, "best: {best};",)?;
-            }
-            write!(shell, "{CR}")?;
+            let last = stats.last().unwrap_or(&empty);
+            let best = stats.best().unwrap_or(&empty);
+            write!(
+                shell,
+                "track #{track}; laps: {laps}; last: {last}; best: {best};{CR}"
+            )?;
         }
         Ok(())
     }
