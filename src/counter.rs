@@ -2,6 +2,8 @@ use crate::*;
 use fugit::MicrosDurationU64;
 use heapless::Vec;
 
+pub const DEBOUNCE_DURATION: Duration = Duration::millis(100);
+
 pub type Duration = MicrosDurationU64;
 pub type LapsHistory = Vec<Instant, 256>;
 pub type LapsStats = Vec<Duration, 256>;
@@ -45,7 +47,18 @@ impl LapCounter {
     pub fn record_lap(&mut self, track: Track, ts: Instant) -> Option<TrackStats> {
         self.history
             .get_mut(track)
-            .and_then(|history| history.push(ts).ok())
+            .and_then(|history| {
+                let valid = history
+                    .iter()
+                    .last()
+                    .and_then(|last| ts.checked_duration_since(*last))
+                    .map(|duration| duration > DEBOUNCE_DURATION)
+                    .unwrap_or(true);
+                if valid {
+                    history.push(ts).ok()?;
+                }
+                Some(())
+            })
             .and(self.stats(track))
     }
 
