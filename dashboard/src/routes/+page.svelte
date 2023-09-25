@@ -1,9 +1,10 @@
 <script>
   import 'bulma/css/bulma.min.css';
   import { HardDriveIcon, WindIcon, Trash2Icon, GithubIcon } from 'svelte-feather-icons';
+  import { serial as polyfill } from 'web-serial-polyfill';
 
   // @ts-ignore
-  let serial = navigator.serial;
+  let serial = navigator.serial || polyfill;
 
   let port;
   let scratch = '';
@@ -24,7 +25,7 @@
         await send('version');
         poll();
       } catch (error) {
-        console.error(error)
+        console.error(error);
         port = null;
       }
     } else {
@@ -110,16 +111,16 @@
           <span class="icon is-small">
             <WindIcon />
           </span>
-          &nbsp; Wzhooh 
+          &nbsp; Wzhooh
         </div>
-        {#if (version)}
+        {#if version}
           <div class="is-size-7 is-family-code version">Firmware {version}</div>
         {/if}
       </div>
     </div>
     <div class="navbar-item toolbar">
       <div class="buttons">
-        <a class="button is-info is-small"  href="https://github.com/dotcypress/wzhooh">
+        <a class="button is-info is-small" href="https://github.com/dotcypress/wzhooh">
           <span class="icon">
             <GithubIcon />
           </span>
@@ -151,7 +152,7 @@
       </div>
     </div>
   </nav>
-  {#if (serial)}
+  {#if serial}
     <div class="columns">
       {#each stats as stat, i}
         <div class="column">
@@ -184,7 +185,6 @@
       </div>
     </section>
   {/if}
-
 </div>
 
 <style>

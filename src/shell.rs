@@ -188,5 +188,5 @@ COMMANDS:\r\n\
 CONTROL KEYS:\r\n\
 \x20 Ctrl+R             Reset counter\r\n\r\n\
 LINKS:\r\n\
-\x20 \x1b[32m Dashboard:  \x1b[34mhttps://github.com/dotcypress/wzhooh \x1b[0m\r\n\
+\x20 \x1b[32m Dashboard:  \x1b[34mhttps://wzhooh.vercel.app \x1b[0m\r\n\
 \x20 \x1b[32m Repository: \x1b[34mhttps://github.com/dotcypress/wzhooh \x1b[0m\r\n\r\n";
