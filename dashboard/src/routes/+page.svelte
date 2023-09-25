@@ -1,10 +1,9 @@
 <script>
   import 'bulma/css/bulma.min.css';
   import { HardDriveIcon, WindIcon, Trash2Icon, GithubIcon } from 'svelte-feather-icons';
-  import { serial as polyfill } from 'web-serial-polyfill';
 
   // @ts-ignore
-  let serial = navigator.serial || polyfill;
+  let serial = navigator.serial;
 
   let port;
   let scratch = '';
