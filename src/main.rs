@@ -211,9 +211,9 @@ mod app {
             AppRequest::SendCounterState => {
                 telemetry.lock(|telemetry| telemetry.send_reset());
                 for track in 0..TRACKS {
-                    counter
-                        .lock(|counter| counter.stats(track))
-                        .map(|stats| telemetry.lock(|telemetry| telemetry.push_track_stats(stats)));
+                    if let Some(stats) = counter.lock(|counter| counter.stats(track)) {
+                        telemetry.lock(|telemetry| telemetry.push_track_stats(stats))
+                    }
                 }
             }
         }
