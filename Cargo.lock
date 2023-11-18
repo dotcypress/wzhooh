@@ -447,9 +447,9 @@ dependencies = [
 
 [[package]]
 name = "rp2040-hal"
-version = "0.9.0"
+version = "0.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ec610f738b69100fbe75f3b835501b669d41c889ac9a62ef284f8e6d1f17385"
+checksum = "08f21deadb5f29f05be9e665049c9c6d6385c6ed3437574c995658a041f71453"
 dependencies = [
  "cortex-m",
  "critical-section",
@@ -651,15 +651,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "uluru"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "308dcc9d947b227796f851adb99936fb060681a89c002c9c1928404a3b6c2d72"
-dependencies = [
- "arrayvec",
-]
-
-[[package]]
 name = "unicode-ident"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -718,15 +709,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "ushell"
-version = "0.3.6"
+name = "usbd-webusb"
+version = "1.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4dc1dca9af9ddad84d78c60a0a781fe4fe67c1a4cf835af0d33074d296c7aba4"
+checksum = "ed33ecaa7a26365f13059e753bfa23f0a4a557565499f46d255c51e737464bd8"
 dependencies = [
- "embedded-hal",
- "heapless",
- "nb 1.1.0",
- "uluru",
+ "usb-device",
 ]
 
 [[package]]
@@ -776,5 +764,5 @@ dependencies = [
  "usb-device",
  "usbd-hid",
  "usbd-serial",
- "ushell",
+ "usbd-webusb",
 ]

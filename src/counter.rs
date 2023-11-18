@@ -9,10 +9,15 @@ pub type LapsHistory = Vec<Instant, 256>;
 pub type LapsStats = Vec<Duration, 256>;
 
 pub struct TrackStats {
+    track: Track,
     stats: LapsStats,
 }
 
 impl TrackStats {
+    pub fn track(&self) -> Track {
+        self.track
+    }
+
     pub fn laps(&self) -> usize {
         self.stats.len()
     }
@@ -68,7 +73,7 @@ impl LapCounter {
                 .windows(2)
                 .filter_map(|win| win[1].checked_duration_since(win[0]))
                 .collect();
-            TrackStats { stats }
+            TrackStats { track, stats }
         })
     }
 }

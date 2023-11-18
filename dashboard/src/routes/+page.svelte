@@ -1,104 +1,97 @@
 <script>
   import 'bulma/css/bulma.min.css';
+  import { onMount } from 'svelte';
   import { HardDriveIcon, WindIcon, Trash2Icon, GithubIcon } from 'svelte-feather-icons';
 
   // @ts-ignore
-  let serial = navigator.serial;
+  let usb = navigator.usb || window.usb;
 
   let port;
-  let scratch = '';
-  let decoder = new TextDecoder('utf-8');
-
-  let version = '';
   let stats = [
-    { laps: '0', last: '0', best: '0' },
-    { laps: '0', last: '0', best: '0' },
-    { laps: '0', last: '0', best: '0' }
+    { laps: '0', last: '0.000', best: '0.000' },
+    { laps: '0', last: '0.000', best: '0.000' },
+    { laps: '0', last: '0.000', best: '0.000' }
   ];
 
-  async function connect() {
-    if (!port) {
-      port = await serial?.requestPort({ filters: [{ usbVendorId: 0x16c0, productId: 0x27dd }] });
-      try {
-        await port.open({ baudRate: 115200 });
-        await send('version');
-        poll();
-      } catch (error) {
-        console.error(error);
+  onMount(async () => {
+    if (!usb) {
+      return;
+    }
+
+    usb.addEventListener('connect', async ({ device }) => {
+      open(device);
+    });
+
+    usb.addEventListener('disconnect', async ({ device }) => {
+      if (port === device) {
         port = null;
       }
-    } else {
-      version = '';
-      await port.close();
+    });
+
+    let knownDevices = await usb.getDevices();
+    for (const device of knownDevices) {
+      if (!device.opened) {
+        await open(device);
+        break;
+      }
+    }
+  });
+
+  async function toggleConnection() {
+    if (port) {
+      port.close();
       port = null;
+    } else {
+      let device = await usb.requestDevice({ filters: [{ vendorId: 0x16c0, productId: 0x27dd }] });
+      if (!device.opened) {
+        open(device);
+      }
     }
-  }
-
-  async function poll() {
-    const reader = port?.readable?.getReader();
-    if (!reader) {
-      return;
-    }
-
-    try {
-      const res = await reader.read();
-      scratch += decoder.decode(res.value);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      reader?.releaseLock();
-    }
-
-    let nl = scratch.indexOf('\n');
-    while (nl != -1) {
-      let line = scratch.substring(0, nl);
-      scratch = scratch.substring(nl + 1);
-      ingest(line);
-      nl = scratch.indexOf('\n');
-    }
-
-    await send('stats');
-    setTimeout(poll, 100);
-  }
-
-  async function send(command) {
-    const writer = port?.writable?.getWriter();
-    if (!writer) {
-      return;
-    }
-    const encoder = new TextEncoder();
-    await writer.write(encoder.encode(`${command}\r\n`));
-    await writer.close();
   }
 
   async function reset() {
-    await send('reset');
+    await port?.controlTransferOut({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 0x01,
+      value: 0x00,
+      index: 0x00
+    });
   }
 
-  function ingest(line) {
-    if (line.startsWith('wzhooh: ')) {
-      version = line.substring(8);
-    } else if (line.startsWith('track #')) {
-      let track = parseInt(line.substring(7, 8));
-      let tags = line.substring(8).split(';');
-      for (const tag of tags) {
-        let tagValue = tag.trim().split(':');
-        if (tagValue.length == 2) {
-          let value = parseInt(tagValue[1].trim()) || 0;
-          switch (tagValue[0]) {
-            case 'laps':
-              stats[track].laps = value.toString();
-              break;
-            case 'last':
-              stats[track].last = (value / 1000000).toFixed(4);
-              break;
-            case 'best':
-              stats[track].best = (value / 1000000).toFixed(4);
-              break;
-          }
-        }
-      }
+  async function open(device) {
+    await device.open();
+    await device.claimInterface(0);
+    port = device;
+    poll();
+  }
+
+  async function poll() {
+    if (!port) {
+      return;
     }
+    try {
+      let report = await port.transferIn(1, 8);
+      let reportType = report.data.getUint8(0);
+      switch (reportType) {
+        case 0x01:
+          let track = report.data.getUint8(1);
+          stats[track].laps = report.data.getUint16(2);
+          stats[track].last = (report.data.getUint16(4) / 1000).toFixed(3);
+          stats[track].best = (report.data.getUint16(6) / 1000).toFixed(3);
+          break;
+        case 0xff:
+          stats = [
+            { laps: '0', last: '0.000', best: '0.000' },
+            { laps: '0', last: '0.000', best: '0.000' },
+            { laps: '0', last: '0.000', best: '0.000' }
+          ];
+          break;
+      }
+    } catch (error) {
+      console.log('usb poll failed', error);
+    }
+    setTimeout(poll, 10);
   }
 </script>
 
@@ -112,18 +105,10 @@
           </span>
           &nbsp; Wzhooh
         </div>
-        {#if version}
-          <div class="is-size-7 is-family-code version">Firmware {version}</div>
-        {/if}
       </div>
     </div>
     <div class="navbar-item toolbar">
       <div class="buttons">
-        <a class="button is-info is-small" href="https://github.com/dotcypress/wzhooh">
-          <span class="icon">
-            <GithubIcon />
-          </span>
-        </a>
         {#if port}
           <button class="button is-small is-danger" title="Reset" on:click={reset}>
             <span class="icon">
@@ -132,13 +117,13 @@
             <span>&nbsp; Reset</span>
           </button>
         {/if}
-        {#if serial}
+        {#if usb}
           <button
             class="button is-small"
             title="Connect"
             class:is-success={!port}
             class:is-warning={port}
-            on:click={connect}
+            on:click={toggleConnection}
           >
             <span class="icon">
               <HardDriveIcon />
@@ -148,10 +133,15 @@
             </span>
           </button>
         {/if}
+        <a class="button is-info is-small" href="https://github.com/dotcypress/wzhooh">
+          <span class="icon">
+            <GithubIcon />
+          </span>
+        </a>
       </div>
     </div>
   </nav>
-  {#if serial}
+  {#if usb}
     <div class="columns">
       {#each stats as stat, i}
         <div class="column">
@@ -179,7 +169,7 @@
     <section class="hero is-danger">
       <div class="hero-body">
         <p class="subtitle">
-          The <a href="https://caniuse.com/web-serial">Web Serial API</a> is not supported by your browser
+          The <a href="https://caniuse.com/web-usb">WebUSB API</a> is not supported by your browser
         </p>
       </div>
     </section>
@@ -209,11 +199,6 @@
     display: flex;
     flex: 1;
     justify-content: end;
-  }
-  .workspace .navbar .navbar-brand .version {
-    position: absolute;
-    left: 18px;
-    bottom: 2px;
   }
   .workspace .columns {
     margin: 8px;

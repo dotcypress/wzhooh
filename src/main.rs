@@ -10,7 +10,7 @@ use defmt_rtt as _;
 mod counter;
 mod display;
 mod io;
-mod shell;
+mod telemetry;
 
 use cortex_m::singleton;
 use counter::*;
@@ -22,10 +22,10 @@ use hal::pwm;
 use hal::timer::{monotonic::Monotonic, *};
 use hal::usb::UsbBus;
 use io::*;
-use shell::*;
-use usb_device::{class_prelude::*, prelude::*};
-use usbd_serial::SerialPort;
-use ushell::history::LRUHistory;
+use telemetry::*;
+use usb_device::class_prelude::*;
+use usb_device::prelude::*;
+use usbd_webusb::{url_scheme, WebUsb};
 
 pub const XTAL_FREQ_HZ: u32 = 12_000_000_u32;
 
@@ -34,7 +34,7 @@ pub const XTAL_FREQ_HZ: u32 = 12_000_000_u32;
 #[used]
 pub static BOOT2: [u8; 256] = rp2040_boot2::BOOT_LOADER_GENERIC_03H;
 
-#[rtic::app(device = pac, peripherals = true, dispatchers = [SW0_IRQ])]
+#[rtic::app(device = pac, peripherals = true, dispatchers = [SW0_IRQ, SW1_IRQ])]
 mod app {
     use super::*;
 
@@ -45,14 +45,16 @@ mod app {
     struct Local {
         buttons: Buttons,
         sensors: Sensors,
-        shell: Shell,
         ui_timer: pwm::Slice<pwm::Pwm0, pwm::FreeRunning>,
+        usb_dev: UsbDevice<'static, hal::usb::UsbBus>,
+        wusb: WebUsb<hal::usb::UsbBus>,
     }
 
     #[shared]
     struct Shared {
         display: Display,
         counter: LapCounter,
+        telemetry: RaceTelemetryClass<'static, hal::usb::UsbBus>,
     }
 
     #[init]
@@ -130,17 +132,14 @@ mod app {
             singleton!(: UsbBusAllocator<UsbBus> = UsbBusAllocator::new(usb_bus))
                 .expect("USB init failed");
 
-        let serial = Serial::new(
-            SerialPort::new(usb_bus),
-            UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
-                .manufacturer("Ferris & Co")
-                .product("vitaly.codes/wzhooh")
-                .serial_number("_wzhooh_")
-                .device_class(2)
-                .build(),
-        );
+        let wusb = WebUsb::new(usb_bus, url_scheme::HTTPS, "wzhooh.vercel.app");
+        let telemetry = RaceTelemetryClass::new(usb_bus);
 
-        let shell = Shell::new(serial, AUTOCOMPLETE, LRUHistory::default());
+        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
+            .manufacturer("Ferris & Co")
+            .product("vitaly.codes/wzhooh")
+            .serial_number("_wzhooh_")
+            .build();
 
         unsafe {
             pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
@@ -148,12 +147,17 @@ mod app {
         };
 
         (
-            Shared { counter, display },
+            Shared {
+                counter,
+                display,
+                telemetry,
+            },
             Local {
                 buttons,
                 sensors,
-                shell,
+                wusb,
                 ui_timer,
+                usb_dev,
             },
             init::Monotonics(mono),
         )
@@ -163,36 +167,23 @@ mod app {
     fn io_irq(ctx: io_irq::Context) {
         for track in 0..TRACKS {
             if ctx.local.sensors.is_car_detected(track) {
-                io_event::spawn(IoEvent::CarDetected(track, monotonics::now()))
-                    .expect("failed to spawn CarDetected event");
+                io_event::spawn(IoEvent::CarDetected(track, monotonics::now())).ok();
             }
         }
         for button in [Button::A, Button::B, Button::C] {
             if ctx.local.buttons.is_pressed(button) {
-                io_event::spawn(IoEvent::ButtonPressed(button))
-                    .expect("failed to spawn ButtonPressed event");
+                io_event::spawn(IoEvent::ButtonPressed(button)).ok();
             }
         }
     }
 
-    #[task(capacity = 16, shared = [counter, display])]
-    fn io_event(ctx: io_event::Context, ev: IoEvent) {
-        let io_event::SharedResources {
-            mut counter,
-            mut display,
-        } = ctx.shared;
-
-        match ev {
-            IoEvent::ButtonPressed(_) => {
-                counter.lock(|counter| counter.reset());
-                display.lock(|display| display.reset());
-            }
-            IoEvent::CarDetected(track, ts) => {
-                if let Some(stats) = counter.lock(|counter| counter.record_lap(track, ts)) {
-                    display.lock(|display| display.set_track_laps(track, stats.laps()));
-                }
-            }
-        }
+    #[task(binds = USBCTRL_IRQ, local = [wusb, usb_dev], shared = [telemetry])]
+    fn usb_irq(ctx: usb_irq::Context) {
+        let mut telemetry = ctx.shared.telemetry;
+        telemetry.lock(|telemetry| {
+            ctx.local.usb_dev.poll(&mut [ctx.local.wusb, telemetry]);
+            telemetry.poll().map(app_req::spawn);
+        });
     }
 
     #[task(binds = PWM_IRQ_WRAP, local = [ui_timer], shared = [display])]
@@ -201,8 +192,45 @@ mod app {
         ctx.local.ui_timer.clear_interrupt();
     }
 
-    #[task(binds = USBCTRL_IRQ, local = [shell], shared = [counter, display])]
-    fn usb_irq(mut ctx: usb_irq::Context) {
-        ctx.local.shell.spin(&mut ctx.shared).ok();
+    #[task(shared = [counter, display, telemetry])]
+    fn app_req(ctx: app_req::Context, req: AppRequest) {
+        let app_req::SharedResources {
+            mut counter,
+            mut display,
+            mut telemetry,
+        } = ctx.shared;
+
+        match req {
+            AppRequest::ResetCounter => {
+                counter.lock(|counter| counter.reset());
+                display.lock(|display| display.reset());
+                telemetry.lock(|telemetry| {
+                    telemetry.push_reset();
+                });
+            }
+        }
+    }
+
+    #[task(capacity = 16, shared = [counter, display, telemetry])]
+    fn io_event(ctx: io_event::Context, ev: IoEvent) {
+        let io_event::SharedResources {
+            mut counter,
+            mut display,
+            mut telemetry,
+        } = ctx.shared;
+
+        match ev {
+            IoEvent::ButtonPressed(_) => {
+                app_req::spawn(AppRequest::ResetCounter).ok();
+            }
+            IoEvent::CarDetected(track, ts) => {
+                if let Some(stats) = counter.lock(|counter| counter.record_lap(track, ts)) {
+                    display.lock(|display| display.set_track_laps(track, stats.laps()));
+                    if stats.laps() > 0 {
+                        telemetry.lock(|telemetry| telemetry.push_track_stats(stats));
+                    }
+                }
+            }
+        }
     }
 }
