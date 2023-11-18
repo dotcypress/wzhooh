@@ -163,7 +163,7 @@ mod app {
         )
     }
 
-    #[task(binds = IO_IRQ_BANK0, priority = 2, local = [buttons, sensors])]
+    #[task(binds = IO_IRQ_BANK0, priority = 3, local = [buttons, sensors])]
     fn io_irq(ctx: io_irq::Context) {
         for track in 0..TRACKS {
             if ctx.local.sensors.is_car_detected(track) {
@@ -177,13 +177,14 @@ mod app {
         }
     }
 
-    #[task(binds = USBCTRL_IRQ, local = [wusb, usb_dev], shared = [telemetry])]
+    #[task(binds = USBCTRL_IRQ, priority = 2, local = [wusb, usb_dev], shared = [telemetry])]
     fn usb_irq(ctx: usb_irq::Context) {
         let mut telemetry = ctx.shared.telemetry;
         telemetry.lock(|telemetry| {
             if ctx.local.usb_dev.poll(&mut [ctx.local.wusb, telemetry]) {
-                telemetry.poll().map(app_req::spawn);
+                telemetry.send_report();
             }
+            telemetry.app_req().map(app_req::spawn);
         });
     }
 
@@ -193,7 +194,7 @@ mod app {
         ctx.local.ui_timer.clear_interrupt();
     }
 
-    #[task(shared = [counter, display, telemetry])]
+    #[task(capacity = 8, shared = [counter, display, telemetry])]
     fn app_req(ctx: app_req::Context, req: AppRequest) {
         let app_req::SharedResources {
             mut counter,
@@ -205,9 +206,15 @@ mod app {
             AppRequest::ResetCounter => {
                 counter.lock(|counter| counter.reset());
                 display.lock(|display| display.reset());
-                telemetry.lock(|telemetry| {
-                    telemetry.push_reset();
-                });
+                telemetry.lock(|telemetry| telemetry.send_reset());
+            }
+            AppRequest::SendCounterState => {
+                telemetry.lock(|telemetry| telemetry.send_reset());
+                for track in 0..TRACKS {
+                    counter
+                        .lock(|counter| counter.stats(track))
+                        .map(|stats| telemetry.lock(|telemetry| telemetry.push_track_stats(stats)));
+                }
             }
         }
     }
@@ -221,16 +228,14 @@ mod app {
         } = ctx.shared;
 
         match ev {
-            IoEvent::ButtonPressed(_) => {
-                app_req::spawn(AppRequest::ResetCounter).ok();
-            }
             IoEvent::CarDetected(track, ts) => {
                 if let Some(stats) = counter.lock(|counter| counter.record_lap(track, ts)) {
                     display.lock(|display| display.set_track_laps(track, stats.laps()));
-                    if stats.laps() > 0 {
-                        telemetry.lock(|telemetry| telemetry.push_track_stats(stats));
-                    }
+                    telemetry.lock(|telemetry| telemetry.push_track_stats(stats));
                 }
+            }
+            IoEvent::ButtonPressed(_) => {
+                app_req::spawn(AppRequest::ResetCounter).ok();
             }
         }
     }

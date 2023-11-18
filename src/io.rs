@@ -1,10 +1,16 @@
 use crate::*;
 
+pub const TRACKS: usize = 3;
+
 pub type SensorPin = Pin<DynPinId, FunctionSio<SioInput>, PullNone>;
 pub type ButtonPin = Pin<DynPinId, FunctionSio<SioInput>, PullUp>;
 pub type Track = usize;
 
-pub const TRACKS: usize = 3;
+#[derive(Clone, Copy, Debug)]
+pub enum IoEvent {
+    ButtonPressed(Button),
+    CarDetected(Track, Instant),
+}
 
 pub struct Sensors {
     tracks: [SensorPin; TRACKS],
@@ -44,12 +50,6 @@ impl Button {
             Button::C => 2,
         }
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum IoEvent {
-    ButtonPressed(Button),
-    CarDetected(Track, Instant),
 }
 
 pub struct Buttons {

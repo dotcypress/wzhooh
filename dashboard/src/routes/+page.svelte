@@ -49,6 +49,20 @@
     }
   }
 
+  async function open(device) {
+    await device.open();
+    await device.claimInterface(0);
+    await device.controlTransferOut({
+      requestType: 'vendor',
+      recipient: 'device',
+      request: 0x02,
+      value: 0x00,
+      index: 0x00
+    });
+    port = device;
+    poll();
+  }
+
   async function reset() {
     await port?.controlTransferOut({
       requestType: 'vendor',
@@ -59,13 +73,6 @@
     });
   }
 
-  async function open(device) {
-    await device.open();
-    await device.claimInterface(0);
-    port = device;
-    poll();
-  }
-
   async function poll() {
     if (!port) {
       return;
@@ -74,7 +81,7 @@
       let report = await port.transferIn(1, 8);
       let reportType = report.data.getUint8(0);
       switch (reportType) {
-        case 0x01:
+        case 0xfe:
           let track = report.data.getUint8(1);
           stats[track].laps = report.data.getUint16(2);
           stats[track].last = (report.data.getUint16(4) / 1000).toFixed(3);

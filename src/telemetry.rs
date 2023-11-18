@@ -5,27 +5,28 @@ use crate::counter::TrackStats;
 pub const REPORT_SIZE: usize = 8;
 
 pub enum AppRequest {
+    SendCounterState,
     ResetCounter,
 }
 
 pub struct RaceTelemetryClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
-    ep_interrupt_in: EndpointIn<'a, B>,
-    counter_reset_req: bool,
-    reports: heapless::Deque<[u8; REPORT_SIZE], 16>,
+    ep_bulk_in: EndpointIn<'a, B>,
+    app_req: Option<AppRequest>,
+    reports: heapless::Deque<[u8; REPORT_SIZE], 32>,
 }
 
 impl<B: UsbBus> RaceTelemetryClass<'_, B> {
     pub fn new(alloc: &UsbBusAllocator<B>) -> RaceTelemetryClass<'_, B> {
         RaceTelemetryClass {
             iface: alloc.interface(),
-            ep_interrupt_in: alloc.interrupt(REPORT_SIZE as _, 10),
-            counter_reset_req: false,
+            ep_bulk_in: alloc.interrupt(REPORT_SIZE as _, 10),
+            app_req: None,
             reports: heapless::Deque::new(),
         }
     }
 
-    pub fn push_reset(&mut self) {
+    pub fn send_reset(&mut self) {
         self.reports.push_front([0xff; REPORT_SIZE]).ok();
     }
 
@@ -41,7 +42,7 @@ impl<B: UsbBus> RaceTelemetryClass<'_, B> {
             .map(|dur| dur.to_millis() as u16)
             .unwrap_or_default();
         let mut report = [0; REPORT_SIZE];
-        report[0] = 0x01;
+        report[0] = 0xfe;
         report[1] = track;
         report[2..4].copy_from_slice(&laps.to_be_bytes());
         report[4..6].copy_from_slice(&last.to_be_bytes());
@@ -49,17 +50,13 @@ impl<B: UsbBus> RaceTelemetryClass<'_, B> {
         self.reports.push_front(report).ok();
     }
 
-    pub fn poll(&mut self) -> Option<AppRequest> {
-        let report = self.reports.pop_back().unwrap_or([0; REPORT_SIZE]);
-        self.ep_interrupt_in.write(&report).ok();
+    pub fn app_req(&mut self) -> Option<AppRequest> {
+        self.app_req.take()
+    }
 
-        if self.counter_reset_req {
-            self.counter_reset_req = false;
-            self.push_reset();
-            Some(AppRequest::ResetCounter)
-        } else {
-            None
-        }
+    pub fn send_report(&mut self) {
+        let report = self.reports.pop_back().unwrap_or([0; REPORT_SIZE]);
+        self.ep_bulk_in.write(&report).ok();
     }
 }
 
@@ -69,7 +66,7 @@ impl<B: UsbBus> UsbClass<B> for RaceTelemetryClass<'_, B> {
         writer: &mut DescriptorWriter,
     ) -> usb_device::Result<()> {
         writer.interface(self.iface, 0xff, 0x00, 0x00)?;
-        writer.endpoint(&self.ep_interrupt_in)?;
+        writer.endpoint(&self.ep_bulk_in)?;
         Ok(())
     }
 
@@ -83,11 +80,15 @@ impl<B: UsbBus> UsbClass<B> for RaceTelemetryClass<'_, B> {
 
         match req.request {
             0x01 => {
-                self.counter_reset_req = true;
                 self.reports.clear();
-                xfer.accept().unwrap();
+                self.app_req = Some(AppRequest::ResetCounter);
+                xfer.accept().ok()
             }
-            _ => xfer.reject().unwrap(),
-        }
+            0x02 => {
+                self.app_req = Some(AppRequest::SendCounterState);
+                xfer.accept().ok()
+            }
+            _ => xfer.reject().ok(),
+        };
     }
 }
