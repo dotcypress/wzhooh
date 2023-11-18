@@ -11,8 +11,8 @@ pub enum AppRequest {
 pub struct RaceTelemetryClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
     ep_interrupt_in: EndpointIn<'a, B>,
+    counter_reset_req: bool,
     reports: heapless::Deque<[u8; REPORT_SIZE], 16>,
-    reset_req: bool,
 }
 
 impl<B: UsbBus> RaceTelemetryClass<'_, B> {
@@ -20,8 +20,8 @@ impl<B: UsbBus> RaceTelemetryClass<'_, B> {
         RaceTelemetryClass {
             iface: alloc.interface(),
             ep_interrupt_in: alloc.interrupt(REPORT_SIZE as _, 10),
+            counter_reset_req: false,
             reports: heapless::Deque::new(),
-            reset_req: false,
         }
     }
 
@@ -52,8 +52,10 @@ impl<B: UsbBus> RaceTelemetryClass<'_, B> {
     pub fn poll(&mut self) -> Option<AppRequest> {
         let report = self.reports.pop_back().unwrap_or([0; REPORT_SIZE]);
         self.ep_interrupt_in.write(&report).ok();
-        if self.reset_req {
-            self.reset_req = false;
+
+        if self.counter_reset_req {
+            self.counter_reset_req = false;
+            self.push_reset();
             Some(AppRequest::ResetCounter)
         } else {
             None
@@ -81,7 +83,8 @@ impl<B: UsbBus> UsbClass<B> for RaceTelemetryClass<'_, B> {
 
         match req.request {
             0x01 => {
-                self.reset_req = true;
+                self.counter_reset_req = true;
+                self.reports.clear();
                 xfer.accept().unwrap();
             }
             _ => xfer.reject().unwrap(),

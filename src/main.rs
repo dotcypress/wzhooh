@@ -181,8 +181,9 @@ mod app {
     fn usb_irq(ctx: usb_irq::Context) {
         let mut telemetry = ctx.shared.telemetry;
         telemetry.lock(|telemetry| {
-            ctx.local.usb_dev.poll(&mut [ctx.local.wusb, telemetry]);
-            telemetry.poll().map(app_req::spawn);
+            if ctx.local.usb_dev.poll(&mut [ctx.local.wusb, telemetry]) {
+                telemetry.poll().map(app_req::spawn);
+            }
         });
     }
 
