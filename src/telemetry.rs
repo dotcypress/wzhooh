@@ -11,7 +11,7 @@ pub enum AppRequest {
 
 pub struct RaceTelemetryClass<'a, B: UsbBus> {
     iface: InterfaceNumber,
-    ep_bulk_in: EndpointIn<'a, B>,
+    ep: EndpointIn<'a, B>,
     app_req: Option<AppRequest>,
     reports: heapless::Deque<[u8; REPORT_SIZE], 32>,
 }
@@ -20,7 +20,7 @@ impl<B: UsbBus> RaceTelemetryClass<'_, B> {
     pub fn new(alloc: &UsbBusAllocator<B>) -> RaceTelemetryClass<'_, B> {
         RaceTelemetryClass {
             iface: alloc.interface(),
-            ep_bulk_in: alloc.interrupt(REPORT_SIZE as _, 10),
+            ep: alloc.interrupt(REPORT_SIZE as _, 10),
             app_req: None,
             reports: heapless::Deque::new(),
         }
@@ -56,7 +56,7 @@ impl<B: UsbBus> RaceTelemetryClass<'_, B> {
 
     pub fn send_report(&mut self) {
         let report = self.reports.pop_back().unwrap_or([0; REPORT_SIZE]);
-        self.ep_bulk_in.write(&report).ok();
+        self.ep.write(&report).ok();
     }
 }
 
@@ -66,7 +66,7 @@ impl<B: UsbBus> UsbClass<B> for RaceTelemetryClass<'_, B> {
         writer: &mut DescriptorWriter,
     ) -> usb_device::Result<()> {
         writer.interface(self.iface, 0xff, 0x00, 0x00)?;
-        writer.endpoint(&self.ep_bulk_in)?;
+        writer.endpoint(&self.ep)?;
         Ok(())
     }
 
