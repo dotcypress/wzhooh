@@ -135,9 +135,9 @@ mod app {
         let wusb = WebUsb::new(usb_bus, url_scheme::HTTPS, "wzhooh.vercel.app");
         let telemetry = RaceTelemetryClass::new(usb_bus);
 
-        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x16c0, 0x27dd))
-            .manufacturer("Ferris & Co")
-            .product("vitaly.codes/wzhooh")
+        let usb_dev = UsbDeviceBuilder::new(usb_bus, UsbVidPid(0x1209, 0xb421))
+            .manufacturer("vitaly.codes")
+            .product("Wzhooh")
             .serial_number("_wzhooh_")
             .build();
 

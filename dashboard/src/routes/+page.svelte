@@ -42,7 +42,9 @@
       port.close();
       port = null;
     } else {
-      let device = await usb.requestDevice({ filters: [{ vendorId: 0x16c0, productId: 0x27dd }] });
+      let device = await usb.requestDevice({
+        filters: [{ vendorId: 0x1209, productId: 0xb421 }]
+      });
       if (!device.opened) {
         open(device);
       }
