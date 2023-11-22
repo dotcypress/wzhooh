@@ -165,9 +165,10 @@ mod app {
 
     #[task(binds = IO_IRQ_BANK0, priority = 3, local = [buttons, sensors])]
     fn io_irq(ctx: io_irq::Context) {
+        let now = monotonics::now();
         for track in 0..TRACKS {
             if ctx.local.sensors.is_car_detected(track) {
-                io_event::spawn(IoEvent::CarDetected(track, monotonics::now())).ok();
+                io_event::spawn(IoEvent::CarDetected(track, now)).ok();
             }
         }
         for button in [Button::A, Button::B, Button::C] {

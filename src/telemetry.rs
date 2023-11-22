@@ -1,5 +1,4 @@
 use usb_device::class_prelude::*;
-
 use crate::counter::TrackStats;
 
 pub const REPORT_SIZE: usize = 8;
